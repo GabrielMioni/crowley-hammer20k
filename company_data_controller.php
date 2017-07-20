@@ -8,8 +8,17 @@
 /**
  * This class updates the json.txt file that's responsible for holding company data.
  *
- * The class compares data previously written to json.txt and current company data extracted from
- * the URL set by company_data_controller::$url.
+ * The steps are:
+ * a. Retrieve company data that's currently at the URL set in company_data_controller::$url.
+ * b. Read the data at json.txt. If json.txt doesn't exist, create it using the data collected in (a).
+ * c. Create a third new company array by comparing company data from (a) and (b). If a company is present in both (a)
+ *    and (b), update its array element with the current price, increment its ['count'] value and update its ['date']
+ *    value with the current timestamp.
+ * d. If a company is present in (b) but not (a), add it to the new company array.
+ * e. Use the new company array to overwrite the data object on json.txt.
+ *
+ * The class is called in cronjob.php. It is intended to be run once daily. The JSON data object stored on json.txt is
+ * used to display an HTML table found at index.php, and created by company_data_viewer.php
  */
 class company_data_controller
 {
