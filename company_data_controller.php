@@ -1,10 +1,15 @@
 <?php
 
 /**
+ * @package     Crowley-Hammer20k
+ * @author      Gabriel Mioni <gabriel@gabrielmioni.com>
+ */
+
+/**
  * This class updates the json.txt file that's responsible for holding company data.
  *
  * The class compares data previously written to json.txt and current company data extracted from
- * the URL set by company_data_controller::url.   
+ * the URL set by company_data_controller::$url.
  */
 class company_data_controller
 {
@@ -14,8 +19,11 @@ class company_data_controller
     /** @var string  HTML retrived by investo_matic::get_html_via_curl() */
     protected $html;
 
-    /** @var domDocument * */
+    /** @var domDocument */
     protected $dom_obj;
+
+    /** @var bool Flag stating whether json.txt is present. */
+    protected $is_init = false;
 
     /** @var array  Array of companies fresh from the HTML at $this->url */
     protected $companies_current;
@@ -39,18 +47,18 @@ class company_data_controller
 
         $this->companies_current = $this->get_companies_current($this->dom_obj);
 
-        $this->purge_old_companies($this->companies_current);
-
         /* ****************************
          * - Get stored company data
          * ****************************/
         $this->companies_stored = $this->get_companies_stored($this->companies_current);
 
+        $this->purge_old_companies($this->companies_stored);
+
         /* ****************************
          * - Write Updated data
          * ****************************/
 
-        $this->update_companies = $this->build_updated_company_array($this->companies_current, $this->companies_stored);
+        $this->update_companies = $this->build_updated_company_array($this->companies_current, $this->companies_stored, $this->is_init);
 
         $this->write_companies_updated($this->update_companies);
 
@@ -103,59 +111,95 @@ class company_data_controller
      */
     protected function get_companies_current(DOMDocument $dom)
     {
-        $inner_html = array();
+        $company_data = array();
         $count = 0;
 
-        $table_elements = $dom->getElementsByTagName('tr');
+        $table_rows = $dom->getElementsByTagName('tr');
 
-        foreach ($table_elements as $child)
+        foreach ($table_rows as $child_tr)
         {
             if ($count > 0) {
 
                 $tmp = array();
 
-                $html = $child->ownerDocument->saveHTML($child);
+                $html_tr = $child_tr->ownerDocument->saveHTML($child_tr);
 
-                $company = substr($html, strpos($html, 'title=') +7);
-                $company = substr($company, 0, strpos($company, 'href'));
-                $company = trim($company);
-                $company = rtrim($company, '"');
+                $html_tr = str_replace('"', '', $html_tr);
+
+
+                $company = $this->extract_company_name($html_tr);
+                $price   = $this->extract_price($html_tr);
 
                 if ($company !== '')
                 {
                     $tmp['company'] = $company;
                     $tmp['date']    = date('Y-m-d H:i:s');
-                    $tmp['count']   = 0;
+                    $tmp['count']   = 1;
+                    $tmp['price']   = $price;
 
-                    $inner_html[] = $tmp;
+                    $company_data[] = $tmp;
                 }
             }
             ++$count;
         }
 
-        return $inner_html;
+        return $company_data;
     }
 
     /**
-     * Loops through each $companies array element and unsets elements that are older than a week.
+     * Searches HTML for the 'title' value in the HTML tr element. Returns value if found.
      *
-     * @param array $companies
+     * @param $html string The table row being searched
+     * @return string If a match is found, return value. Else return whitespace.
      */
-    protected function purge_old_companies(array &$companies)
+    protected function extract_company_name($html)
     {
-        $count = count($companies);
+        if (preg_match('~title=(.*?) href~', $html, $out) === 1) {
+            return $out[1];
+        }
+
+        return '';
+    }
+
+    /**
+     * Searches HTML for the price value in the HTML tr element. Returns value if found. Price is wrapped in a
+     * span element that always has a CSS ID. The ID always ends 'Last'.
+     *
+     * @param $html string The table row being searched
+     * @return string If a match is found, return value. Else return whitespace.
+     */
+    protected function extract_price($html)
+    {
+        if (preg_match('~Last>(.*?)</span>~', $html, $out) === 1) {
+
+            return $out[1];
+        }
+
+        return '';
+    }
+
+    /**
+     * Loops through each $companies_stored array element and unsets elements that are older than a week.
+     *
+     * @param array $companies_stored
+     */
+    protected function purge_old_companies(array &$companies_stored)
+    {
+        $count = count($companies_stored);
         $week_ago = time() - (86400 * 7);
         for ($c = 0 ; $c < $count ; ++$c)
         {
-            $date = strtotime($companies[$c]['date']);
-            if ($date < $week_ago)
+            $date    = strtotime($companies_stored[$c]['date']);
+            $company = trim($companies_stored[$c]['company']);
+
+            if ($date < $week_ago || $company === '')
             {
-                unset($companies[$c]);
+                unset($companies_stored[$c]);
             }
         }
 
         // Reindex array
-        $companies = array_values($companies);
+        $companies_stored = array_values($companies_stored);
     }
 
     /**
@@ -163,24 +207,29 @@ class company_data_controller
      * json_decoded content of the file. If the file doesn't exist, creates it by writing the json_encoded
      * string from $companies.
      *
+     * Sets $this->is_init = true if the json.txt is not present.
+     *
      * @param array $companies_current
      * @return array If json.txt exists, return the json_decoded array. Else return the $companies array.
      */
     protected function get_companies_stored(array $companies_current)
     {
         $check_file = file_exists('json.txt');
-        
+
         if (!$check_file)
         {
+            // Set the $is_init flag.
+            $this->is_init = true;
+
             $file = @fopen("json.txt","x");
-            
+
             $json_data = json_encode($companies_current, true);
-            echo fwrite($file, $json_data);
+            fwrite($file, $json_data);
             fclose($file);
 
             return $companies_current;
         }
-        
+
         if ($check_file)
         {
             $file = fopen('json.txt', 'r');
@@ -200,10 +249,17 @@ class company_data_controller
      *
      * @param array $current_company
      * @param array $stored_company
+     * @param bool $is_init If true, just returns the $current_company array.
      * @return array
      */
-    protected function build_updated_company_array(array $current_company, array $stored_company)
+    protected function build_updated_company_array(array $current_company, array $stored_company, $is_init)
     {
+        /* If $is_init is true, no need to process data. Just return the $current_company array since that array
+         * is necessarily the most recent data. */
+        if ($is_init === true)
+        {
+            return $current_company;
+        }
 
         // Fill array with old records.
         $out_company = $stored_company;
@@ -220,22 +276,29 @@ class company_data_controller
              */
             if (in_array($value['company'], $current_company_names))
             {
-                $out_company[$key]['date'] = date('Y-m-d H:i:s');
+                // Get the current price since we need to update the old record.
+                $current_co_key = array_search($value['company'], $current_company_names);
+                $current_price  = $current_company[$current_co_key]['price'];
+
+                $out_company[$key]['price'] = $current_price;
+                $out_company[$key]['date']  = date('Y-m-d H:i:s');
                 $out_company[$key]['count'] = $out_company[$key]['count'] + 1;
             }
         }
 
         // Get array of the stored company names
         $stored_company_names = $this->return_company_names($stored_company);
-        
+
         // Append new companies that weren't already in the old company array.
         foreach ($current_company as $current)
         {
             if (!in_array($current['company'], $stored_company_names))
             {
-                $tmp['name'] = $current['name'];
-                $tmp['date'] = date('Y-m-d H:i:s');
-                $tmp['count'] = 0;
+
+                $tmp['company'] = $current['company'];
+                $tmp['date']    = date('Y-m-d H:i:s');
+                $tmp['count']   = 1;
+                $tmp['price']   = $current['price'];
 
                 $out_company[] = $tmp;
             }
@@ -271,9 +334,7 @@ class company_data_controller
         $json_date = json_encode($update_companies);
 
         $file = fopen("json.txt","w");
-        echo fwrite($file, $json_date);
+        fwrite($file, $json_date);
         fclose($file);
     }
 }
-
-$worker = new company_data_controller();
