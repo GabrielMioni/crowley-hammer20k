@@ -61,7 +61,7 @@ class company_data_controller
          * ****************************/
         $this->companies_stored = $this->get_companies_stored($this->companies_current);
 
-        $this->purge_old_companies($this->companies_stored);
+        $this->purge_old_and_blank_companies($this->companies_stored);
 
         /* ****************************
          * - Write Updated data
@@ -192,7 +192,7 @@ class company_data_controller
      *
      * @param array $companies_stored
      */
-    protected function purge_old_companies(array &$companies_stored)
+    protected function purge_old_and_blank_companies(array &$companies_stored)
     {
         $count = count($companies_stored);
         $week_ago = time() - (86400 * 7);
