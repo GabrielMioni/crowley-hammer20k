@@ -12,28 +12,12 @@ $table = $company_viewer->return_table();
 <html lang="en-US">
     <head>
         <meta charset="UTF-8">
-        <title>Crowley-Hammer10k</title>
+        <title>Crowley-Hammer 20k</title>
         <link href="https://fonts.googleapis.com/css?family=Fjalla+One|Oswald" rel="stylesheet">
-        <style>
-            table {
-                border-collapse: collapse;
-                border-style: inset;
-                font-family: "Oswald",sans-serif;
-                margin: 0 auto;
-                font-size: 20px;
-            }
-
-            th {
-                padding-right: 20px;
-                text-align: left;
-            }
-
-            .company {
-                padding-right: 20px;
-            }
-        </style>
+        <link rel="stylesheet" href="css/crowley-hammer20k.css">
     </head>
     <body>
-    <?php echo $table; ?>
+        <h1>CROWLEY-HAMMER 20K</h1>
+        <?php echo $table; ?>
     </body>
 </html>

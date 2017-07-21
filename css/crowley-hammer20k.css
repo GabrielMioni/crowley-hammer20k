@@ -1,0 +1,38 @@
+body {
+    background-color: #000000;
+}
+table {
+    border-collapse: collapse;
+    border-style: inset;
+    font-family: "Oswald",sans-serif;
+    margin: 0 auto;
+    font-size: 20px;
+}
+
+tbody tr:nth-child(odd) {
+    background-color: burlywood;
+}
+tbody tr:nth-child(even) {
+    background-color: seashell;
+}
+
+#thead {
+    background-color: infobackground;
+}
+
+th {
+    padding-right: 20px;
+    text-align: left;
+}
+
+.company {
+    padding-right: 20px;
+}
+
+h1 {
+    background-color: yellow;
+    border-bottom: 5px solid grey;
+    border-top: 5px solid grey;
+    font-family: Lucida Grande,sans-serif;
+    text-align: center;
+}
