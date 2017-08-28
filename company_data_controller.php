@@ -25,7 +25,7 @@ class company_data_controller
     /** @var string  The URL being scraped for data */
     protected $url;
 
-    /** @var string  HTML retrived by investo_matic::get_html_via_curl() */
+    /** @var string  HTML retrived by company_data_controller::get_html_via_curl() */
     protected $html;
 
     /** @var domDocument */
@@ -191,11 +191,21 @@ class company_data_controller
      * Loops through each $companies_stored array element and unsets elements that are older than a week.
      *
      * @param array $companies_stored
+     * @return bool If the check is run on a weekend or Monday, return false. The purge should not operate on those days.
      */
     protected function purge_old_and_blank_companies(array &$companies_stored)
     {
+        $day = date('D', time());
+
+        // Don't run the purge on weekend days. The board is not updated.
+        $three_day_weekend = array('Sat', 'Sun', 'Mon');
+        if (in_array($day, $three_day_weekend))
+        {
+            return false;
+        }
+
         $count = count($companies_stored);
-        $week_ago = time() - (86400 * 7);
+        $week_ago = time() - (86400 * 2);
         for ($c = 0 ; $c < $count ; ++$c)
         {
             $date    = strtotime($companies_stored[$c]['date']);
